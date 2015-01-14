@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -8,7 +10,9 @@ namespace constants
 {
     const int CAMELS = 5;
     const int LENGTH_TRACK = 16;
+    const int LAST_WINNING_POSITION = 2;
 }
+
 
 typedef struct player {
   int position;
@@ -19,24 +23,28 @@ typedef struct player {
   player() : hasMoved(false) {}
 } player;
 
+typedef std::pair <int, player*> camelPair;
+
 player * players = new player[constants::CAMELS];
 
-float scores[constants::CAMELS];
+float scores[constants::CAMELS * constants::CAMELS];
+int order[constants::CAMELS];
 int nonMovedPlayers = constants::CAMELS;
 int positionsChecked = 0;
 int * board = new int[constants::LENGTH_TRACK];
 
 void loop(int inversedChance);
+void updateFinishChances(int inversedChance);
 void movePlayerWithCarriedPlayers(player * camel, int steps);
 void setup();
-int getWinner();
+void outputScores();
+void calculateOrder();
 
 int main()
 {
 	int i=0;
-	float sum=0;
 
-	for(i=0; i<constants::CAMELS; ++i)
+	for(i=0; i<constants::CAMELS * constants::CAMELS; ++i)
 	{
 		scores[i] = 0.0;
 	}
@@ -50,16 +58,7 @@ int main()
 
 	loop(1);
 
-	cout << "Checked " << positionsChecked << " positions. Winning chances:\n";
-	
-	for(i=0; i < constants::CAMELS; ++i)
-	{
-		sum += scores[i];
-		cout << i << ": " << scores[i] << endl;
-	}
-
-	cout << "Check sum: " << sum << endl;
-
+	outputScores();
 
 	delete[] players;
 	delete[] board;
@@ -68,9 +67,42 @@ int main()
 	return 0;
 }
 
+void outputScores()
+{
+	int i=0, j=0;
+	float sumWinning=0;
+
+	printf("Checked %d positions\n", positionsChecked);
+	printf("%2s | ","#");
+	for(i=0; i < constants::CAMELS; ++i)
+	{
+		printf("%-5d", i+1);
+	}
+	printf("|%5s", " 1st+2nd");
+	printf("\n");
+
+
+	for(i=0; i < constants::CAMELS; ++i)
+	{
+		printf("%2d | ", i+1);
+
+		for(j=0; j < constants::CAMELS; ++j)
+		{
+			if(j<constants::LAST_WINNING_POSITION)
+				sumWinning += scores[i*constants::CAMELS+j];
+
+			printf("%-1.2f ", scores[i*constants::CAMELS+j]);
+		}
+
+		printf("| %-1.2f \n", sumWinning);
+
+		sumWinning = 0;
+	}
+}
+
 void loop(int inversedChance)
 {
-	int i, j, newInversedChance, winner, to, from;
+	int i, j, newInversedChance, to, from;
 
 	++positionsChecked;
 
@@ -108,8 +140,7 @@ void loop(int inversedChance)
 				if(players[i].position > constants::LENGTH_TRACK)
 				{
 					// Increase winning chances
-					winner = getWinner();
-					scores[winner] += 1/(float)newInversedChance;
+					updateFinishChances(newInversedChance);
 				} else {
 
 					// Check next turn
@@ -127,34 +158,67 @@ void loop(int inversedChance)
 	// If there is no move to do, find the winner and increase his chances!
 	else
 	{
-
-		winner = getWinner();
-
-		// Increase winning chances
-		scores[winner] += 1/(float)inversedChance;
+		// Increase chances
+		updateFinishChances(inversedChance);
 	}
 }
 
-int getWinner()
+void updateFinishChances(int inversedChance)
 {
-	int max = 0, i, winner=0;
+	int i=0;
+	float chance = 1/(float)inversedChance;
+
+	// first calculate the win order.
+	calculateOrder();
+
+	// then loop over the camels and add the chances
+	for(i=0; i<constants::CAMELS; ++i)
+	{
+		scores[constants::CAMELS*i + order[i]] += chance;
+	}
+}
+
+bool sort_camels(const camelPair& left, const camelPair& right)
+{
+	player * above = left.second->above;
+
+	if(left.second->position == right.second->position)
+	{
+		while(above != NULL)
+		{
+			if(above == right.second)
+				return false;
+
+			above = above->above;
+		}
+
+		return true;
+	}
+
+	return left.second->position > right.second->position;
+}
+
+void calculateOrder()
+{
+	int i;
+	std::pair <int, player*> indexed_camel;
+	std::vector<camelPair> indexed_camels;
+
+
+	// first index the camels by array index
 
 	for(i=0; i<constants::CAMELS; ++i)
 	{
-		// Check if position is okay
-		if(players[i].position >= max)
-		{
-			max = players[i].position;
-
-			// Check if camel is on top
-			if(players[i].above == NULL)
-			{
-				winner = i;
-			}
-		}
+		indexed_camels.push_back(std::make_pair(i, &players[i]));
 	}
 
-	return winner;
+	// sort them
+	std::sort(indexed_camels.begin(), indexed_camels.end(), sort_camels);
+
+	for(i=0; i<constants::CAMELS; ++i)
+	{
+		order[i] = indexed_camels[i].first;
+	}
 }
 
 void movePlayerWithCarriedPlayers(player * camel, int position)
