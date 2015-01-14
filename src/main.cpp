@@ -31,6 +31,7 @@ float scores[constants::CAMELS * constants::CAMELS];
 int order[constants::CAMELS];
 int nonMovedPlayers = constants::CAMELS;
 int positionsChecked = 0;
+int outcomesChecked = 0;
 int * board = new int[constants::LENGTH_TRACK];
 
 void loop(int inversedChance);
@@ -72,7 +73,7 @@ void outputScores()
 	int i=0, j=0;
 	float sumWinning=0;
 
-	printf("Checked %d positions\n", positionsChecked);
+	printf("Checked %d positions and %d final positions\n", positionsChecked, outcomesChecked);
 	printf("%2s | ","#");
 	for(i=0; i < constants::CAMELS; ++i)
 	{
@@ -153,20 +154,20 @@ void loop(int inversedChance)
 				++nonMovedPlayers;
 			}
 		}
+
+		return;
 	}
 
 	// If there is no move to do, find the winner and increase his chances!
-	else
-	{
-		// Increase chances
-		updateFinishChances(inversedChance);
-	}
+	updateFinishChances(inversedChance);
 }
 
 void updateFinishChances(int inversedChance)
 {
 	int i=0;
 	float chance = 1/(float)inversedChance;
+
+	++outcomesChecked;
 
 	// first calculate the win order.
 	calculateOrder();
