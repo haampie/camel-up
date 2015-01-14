@@ -174,7 +174,7 @@ void updateFinishChances(int inversedChance)
 	// then loop over the camels and add the chances
 	for(i=0; i<constants::CAMELS; ++i)
 	{
-		scores[constants::CAMELS*i + order[i]] += chance;
+		scores[constants::CAMELS*order[i] + i] += chance;
 	}
 }
 
